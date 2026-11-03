@@ -11,6 +11,7 @@ import {
   QueuedOrder,
   SearchTraceStep,
   ClientMinHeap,
+  ClientOrderQueue,
   client_merge_sort,
   client_binary_search_by_sku,
   client_binary_search_with_trace,
@@ -153,7 +154,7 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [sales, setSales] = useState<Sale[]>(INITIAL_SALES);
   const [ordersQueue, setOrdersQueue] = useState<QueuedOrder[]>([]);
-  const [notification, setNotification] = useState<{ type: 'success' | 'danger' | 'info'; message: string } | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'danger' | 'warning' | 'info'; message: string } | null>(null);
 
   // Search State for Inventory (Unified search with auto-suggest dropdown)
   const [searchQuery, setSearchQuery] = useState('');
@@ -213,7 +214,7 @@ export default function App() {
   }, [newProductCategory, isAddModalOpen, products]);
 
   // Toast Notification Helper
-  const showToast = (message: string, type: 'success' | 'danger' | 'info' = 'success') => {
+  const showToast = (message: string, type: 'success' | 'danger' | 'warning' | 'info' = 'success') => {
     setNotification({ message, type });
     setTimeout(() => {
       setNotification(null);
@@ -421,6 +422,20 @@ export default function App() {
 
   const executeDeleteProduct = () => {
     if (!deleteConfirm) return;
+
+    // Check if product appears in past sales history (foreign key constraint)
+    const hasSalesHistory = sales.some(sale =>
+      sale.items?.some(item => item.product_id === deleteConfirm.productId)
+    );
+    if (hasSalesHistory) {
+      showToast(
+        "Cannot remove this product because it appears in past sales records. Set its stock to 0 instead to retire it.",
+        "warning"
+      );
+      setDeleteConfirm(null);
+      return;
+    }
+
     setProducts(prev => prev.filter(p => p.id !== deleteConfirm.productId));
     showToast(`Product '${deleteConfirm.productName}' (${deleteConfirm.productSku}) deleted from catalog.`, 'info');
     setDeleteConfirm(null);
@@ -558,7 +573,7 @@ export default function App() {
     return { totalItems, totalAmount, costTotal, profit };
   }, [customerCart]);
 
-  // Enqueue multi-item order to FIFO Queue
+  // Enqueue multi-item order to FIFO Queue using ClientOrderQueue (singly linked list)
   const handleSubmitOrderToQueue = () => {
     if (customerCart.length === 0) {
       showToast('Cannot enqueue empty cart. Please add items.', 'danger');
@@ -567,7 +582,7 @@ export default function App() {
 
     const customer = posCustomerName.trim() || 'Walk-in Farmer';
     const queuedOrder: QueuedOrder = {
-      order_id: `ORD-${Date.now().toString().slice(-6)}`,
+      order_id: `ORD-${Date.now()}`,
       customer_name: customer,
       items: [...customerCart],
       total_items_count: cartSummary.totalItems,
@@ -577,7 +592,10 @@ export default function App() {
       created_at: new Date().toISOString().replace('T', ' ').slice(0, 19)
     };
 
-    setOrdersQueue(prev => [...prev, queuedOrder]);
+    const q = new ClientOrderQueue(ordersQueue);
+    q.enqueue(queuedOrder);
+    setOrdersQueue(q.toList());
+
     setCustomerCart([]);
     setPosCustomerName('');
     showToast(`Order ${queuedOrder.order_id} enqueued for dispatch with ${queuedOrder.items.length} product(s)!`, 'success');
@@ -593,21 +611,26 @@ export default function App() {
     }
 
     // Pure FIFO dequeue from head of OrderQueue
-    const recalledOrder = ordersQueue[0];
-    setOrdersQueue(prev => prev.slice(1));
+    const q = new ClientOrderQueue(ordersQueue);
+    const recalledOrder = q.dequeue();
+    setOrdersQueue(q.toList());
 
-    // Load customer name and items back into cashier cart for modifications
-    setPosCustomerName(recalledOrder.customer_name);
-    setCustomerCart(recalledOrder.items);
-    showToast(`Dequeued order ${recalledOrder.order_id} back to active ticket for edits.`, 'info');
+    if (recalledOrder) {
+      setPosCustomerName(recalledOrder.customer_name);
+      setCustomerCart(recalledOrder.items);
+      showToast(`Dequeued order ${recalledOrder.order_id} back to active ticket for edits.`, 'info');
+    }
   };
 
   // Discard order at head of queue
   const handleCancelQueuedOrder = () => {
     if (ordersQueue.length === 0) return;
-    const discarded = ordersQueue[0];
-    setOrdersQueue(prev => prev.slice(1));
-    showToast(`Dequeued and cancelled order ${discarded.order_id}.`, 'info');
+    const q = new ClientOrderQueue(ordersQueue);
+    const discarded = q.dequeue();
+    setOrdersQueue(q.toList());
+    if (discarded) {
+      showToast(`Dequeued and cancelled order ${discarded.order_id}.`, 'info');
+    }
   };
 
   // Process order from queue head (FIFO Dequeue + Atomic Inventory Deduction)
@@ -617,18 +640,23 @@ export default function App() {
       return;
     }
 
-    const orderToProcess = ordersQueue[0];
+    const q = new ClientOrderQueue(ordersQueue);
+    const orderToProcess = q.peek();
+    if (!orderToProcess) return;
 
-    // Verify stock for all items
+    // Verify stock for all items (order remains at front if verification fails)
     for (const item of orderToProcess.items) {
       const currentProd = products.find(p => p.id === item.product_id);
       if (!currentProd) {
-        showToast(`Order failed: ${item.product_name} not found in inventory.`, 'danger');
+        showToast(
+          `Order failed: ${item.product_name} not found in inventory. The order is still at the front of the queue; use Dequeue to Edit to fix it.`,
+          'danger'
+        );
         return;
       }
       if (currentProd.stock_quantity < item.quantity) {
         showToast(
-          `Stock Underflow! Only ${currentProd.stock_quantity} left for ${currentProd.name}, but order needs ${item.quantity}.`,
+          `Stock Underflow! Only ${currentProd.stock_quantity} left for ${currentProd.name}, but order needs ${item.quantity}. The order is still at the front of the queue; use Dequeue to Edit to fix it.`,
           'danger'
         );
         return;
@@ -644,10 +672,19 @@ export default function App() {
       return p;
     }));
 
-    // Record sale
+    // Record sale with collision-resistant receipt number
+    const nowStr = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+    const baseReceipt = `REC-${nowStr}`;
+    let receiptNum = baseReceipt;
+    let suffix = 2;
+    while (sales.some(s => s.receipt_number === receiptNum)) {
+      receiptNum = `${baseReceipt}-${suffix}`;
+      suffix++;
+    }
+
     const newSale: Sale = {
       id: Date.now(),
-      receipt_number: `REC-${Date.now().toString().slice(-8)}`,
+      receipt_number: receiptNum,
       customer_name: orderToProcess.customer_name,
       total_amount: orderToProcess.total_amount,
       cost_total: orderToProcess.cost_total,
@@ -665,8 +702,9 @@ export default function App() {
     };
     setSales(prev => [newSale, ...prev]);
 
-    // Dequeue head
-    setOrdersQueue(prev => prev.slice(1));
+    // Dequeue head only after the sale is committed
+    q.dequeue();
+    setOrdersQueue(q.toList());
 
     showToast(
       `Dispatched Order ${orderToProcess.order_id}! Receipt: ${newSale.receipt_number}. Deducted ${orderToProcess.total_items_count} units.`,
@@ -811,11 +849,13 @@ export default function App() {
           <div className={`px-4 py-3 rounded-lg border text-sm font-medium flex items-center justify-between shadow-sm ${
             notification.type === 'success' ? 'bg-[#EBF4EC] border-[#4E8752] text-[#2D5A27]' :
             notification.type === 'danger' ? 'bg-[#FDECE8] border-[#BF4327] text-[#BF4327]' :
+            notification.type === 'warning' ? 'bg-[#FEF9E7] border-[#E09F3E] text-[#8C5E00]' :
             'bg-white border-[#D5DCD0] text-[#2B2118]'
           }`}>
             <div className="flex items-center space-x-2">
               {notification.type === 'success' && <CheckCircle2 className="w-5 h-5 text-[#4E8752]" />}
               {notification.type === 'danger' && <AlertTriangle className="w-5 h-5 text-[#BF4327]" />}
+              {notification.type === 'warning' && <AlertTriangle className="w-5 h-5 text-[#E09F3E]" />}
               <span>{notification.message}</span>
             </div>
             <button onClick={() => setNotification(null)} className="text-xs font-bold opacity-60 hover:opacity-100">✕</button>
@@ -2077,7 +2117,7 @@ export default function App() {
                 <div className="p-4 bg-[#FAF8F5] rounded-xl border border-[#D5DCD0] space-y-2">
                   <h3 className="font-bold text-sm text-[#2D5A27]">3. FIFO Order Queue (`dsa/queue.py`)</h3>
                   <p className="text-[#5A4A3E]">
-                    <strong>Application:</strong> Cashier checkout and warehouse dispatch queue. Manages customer orders sequentially to prevent stock races during bulk planting season pickups.
+                    <strong>Application:</strong> Cashier checkout &amp; warehouse dispatch queue implemented as a pure singly linked list with head and tail pointers (O(1) enqueue, dequeue, peek with zero built-in deque shortcuts). Retains failed dispatch orders at head until explicitly resolved.
                   </p>
                 </div>
 
@@ -2096,8 +2136,9 @@ export default function App() {
                   <p className="text-emerald-400">pip install -r requirements.txt</p>
                   <p><span className="text-slate-400"># 2. Initialize database & seed agricultural products</span></p>
                   <p className="text-emerald-400">python3 database/db.py</p>
-                  <p><span className="text-slate-400"># 3. Run DSA verification assertions</span></p>
+                  <p><span className="text-slate-400"># 3. Run DSA & Route verification test suites</span></p>
                   <p className="text-emerald-400">python3 test_dsa.py</p>
+                  <p className="text-emerald-400">python3 test_routes.py</p>
                   <p><span className="text-slate-400"># 4. Start Flask web server</span></p>
                   <p className="text-emerald-400">python3 app.py</p>
                 </div>

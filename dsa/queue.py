@@ -4,88 +4,80 @@ Universidad de Dagupan | ITECC04: Data Structures & Algorithms
 Module: dsa/queue.py
 Application: Checkout & Warehouse Dispatch Queue
 
-Design Rationale:
------------------
-In retail agricultural supply centers, multiple farmers and agricultural workers
-place bulk orders simultaneously (e.g., during planting season for fertilizer and seeds).
-To prevent race conditions, avoid inventory over-allocation, and guarantee fairness,
-orders enter a strictly ordered First-In, First-Out (FIFO) queue. Orders are staged
-and verified sequentially before committing atomic stock deductions to the database.
+Implementation: hand-written singly linked list with a head pointer (front of the
+queue) and a tail pointer (back of the queue). No built-in queue container
+(collections.deque, queue.Queue, or a list used as a queue) is used.
+
+    head -> [order A] -> [order B] -> [order C] <- tail
 
 Complexity:
------------
-- enqueue(order): O(1) amortized
-- dequeue():      O(1)
-- peek():         O(1)
-- is_empty():     O(1)
-- size():         O(1)
-- Space:          O(n) where n is the number of queued orders
+- enqueue: O(1)   dequeue: O(1)   peek: O(1)   is_empty: O(1)   size: O(1)
+- to_list: O(n)   Space: O(n)
 """
 
 from typing import Dict, Any, Optional, List
-from collections import deque
+
+
+class _Node:
+    """A single link in the queue: one order plus a pointer to the next node."""
+
+    __slots__ = ("order", "next")
+
+    def __init__(self, order: Dict[str, Any]) -> None:
+        self.order = order
+        self.next: Optional["_Node"] = None
 
 
 class OrderQueue:
-    """
-    Pure FIFO (First-In, First-Out) Queue implementation for managing
-    checkout transactions and warehouse dispatch requests.
-    """
+    """Pure FIFO queue implemented as a singly linked list."""
 
     def __init__(self) -> None:
-        """Initialize an empty order queue using an internal double-ended container."""
-        self._items: deque[Dict[str, Any]] = deque()
+        self._head: Optional[_Node] = None
+        self._tail: Optional[_Node] = None
+        self._size: int = 0
 
     def enqueue(self, order: Dict[str, Any]) -> None:
-        """
-        Add a new order to the tail (back) of the queue.
-        Time Complexity: O(1)
-        """
         if not isinstance(order, dict):
             raise TypeError("Order must be a valid dictionary structure.")
-        self._items.append(order)
+        new_node = _Node(order)
+        if self._tail is None:
+            self._head = new_node
+            self._tail = new_node
+        else:
+            self._tail.next = new_node
+            self._tail = new_node
+        self._size += 1
 
     def dequeue(self) -> Optional[Dict[str, Any]]:
-        """
-        Remove and return the order at the head (front) of the queue.
-        Time Complexity: O(1)
-        Returns None if queue is empty.
-        """
-        if self.is_empty():
+        if self._head is None:
             return None
-        return self._items.popleft()
+        removed = self._head
+        self._head = removed.next
+        if self._head is None:
+            self._tail = None
+        self._size -= 1
+        return removed.order
 
     def peek(self) -> Optional[Dict[str, Any]]:
-        """
-        Inspect the next order in line at the head without removing it.
-        Time Complexity: O(1)
-        Returns None if queue is empty.
-        """
-        if self.is_empty():
+        if self._head is None:
             return None
-        return self._items[0]
+        return self._head.order
 
     def is_empty(self) -> bool:
-        """
-        Check if the queue is empty.
-        Time Complexity: O(1)
-        """
-        return len(self._items) == 0
+        return self._size == 0
 
     def size(self) -> int:
-        """
-        Return the number of orders currently waiting in the dispatch queue.
-        Time Complexity: O(1)
-        """
-        return len(self._items)
+        return self._size
 
     def to_list(self) -> List[Dict[str, Any]]:
-        """
-        Return a snapshot list of queued orders from head to tail
-        for inspection and UI rendering without mutating the queue.
-        """
-        return list(self._items)
+        orders: List[Dict[str, Any]] = []
+        current = self._head
+        while current is not None:
+            orders.append(current.order)
+            current = current.next
+        return orders
 
     def clear(self) -> None:
-        """Remove all orders from the queue."""
-        self._items.clear()
+        self._head = None
+        self._tail = None
+        self._size = 0

@@ -343,42 +343,72 @@ export function client_binary_search_with_trace(
 // ==========================================
 // 4. FIFO ORDER QUEUE IMPLEMENTATION (dsa/queue.py)
 // ==========================================
+interface QueueNode {
+  order: QueuedOrder;
+  next: QueueNode | null;
+}
+
 export class ClientOrderQueue {
-  private items: QueuedOrder[] = [];
+  private head: QueueNode | null = null;
+  private tail: QueueNode | null = null;
+  private count = 0;
 
   constructor(initialItems?: QueuedOrder[]) {
     if (initialItems) {
-      this.items = [...initialItems];
+      for (const order of initialItems) {
+        this.enqueue(order);
+      }
     }
   }
 
   public enqueue(order: QueuedOrder): void {
-    this.items.push(order);
+    const node: QueueNode = { order, next: null };
+    if (this.tail === null) {
+      this.head = node;
+      this.tail = node;
+    } else {
+      this.tail.next = node;
+      this.tail = node;
+    }
+    this.count++;
   }
 
   public dequeue(): QueuedOrder | null {
-    if (this.isEmpty()) return null;
-    return this.items.shift() || null;
+    if (this.head === null) return null;
+    const removed = this.head;
+    this.head = removed.next;
+    if (this.head === null) {
+      this.tail = null;
+    }
+    this.count--;
+    return removed.order;
   }
 
   public peek(): QueuedOrder | null {
-    if (this.isEmpty()) return null;
-    return this.items[0];
+    return this.head === null ? null : this.head.order;
   }
 
   public isEmpty(): boolean {
-    return this.items.length === 0;
+    return this.count === 0;
   }
 
   public size(): number {
-    return this.items.length;
+    return this.count;
   }
 
   public toList(): QueuedOrder[] {
-    return [...this.items];
+    const result: QueuedOrder[] = [];
+    let current = this.head;
+    while (current !== null) {
+      result.push(current.order);
+      current = current.next;
+    }
+    return result;
   }
 
   public clear(): void {
-    this.items = [];
+    this.head = null;
+    this.tail = null;
+    this.count = 0;
   }
 }

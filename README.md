@@ -38,9 +38,10 @@ The interface is styled using a farm-inspired color system via Tailwind CSS:
 ## 📂 Project Directory Structure
 
 ```text
-├── app.py                  # Main Flask application with 4 core routes
+├── app.py                  # Main Flask application with 6 routes (dashboard, inventory, pos, reports, code viewer, defense guide)
 ├── requirements.txt        # Python dependency manifest (Flask)
-├── test_dsa.py             # Comprehensive test runner verifying all 4 DSA modules
+├── test_dsa.py             # Unit and edge-case tests verifying all 4 DSA modules
+├── test_routes.py          # End-to-end route tests (run on a temporary copy of the database)
 ├── README.md               # Project documentation and complexity proof
 │
 ├── dsa/                    # Standalone DSA Python Modules (NO BUILT-IN SHORTCUTS)
@@ -48,7 +49,7 @@ The interface is styled using a farm-inspired color system via Tailwind CSS:
 │   ├── min_heap.py         # MinHeap class (insert, extract_min, heapify up/down)
 │   ├── merge_sort.py       # Recursive merge_sort() and two-pointer merge()
 │   ├── binary_search.py    # Iterative O(log n) binary_search_by_sku() + pointer tracer
-│   └── queue.py            # FIFO OrderQueue class (enqueue, dequeue, peek, size)
+│   └── queue.py            # FIFO OrderQueue class (hand-written linked list: enqueue, dequeue, peek, size)
 │
 ├── database/
 │   ├── db.py               # SQLite schema setup and realistic agricultural seed data
@@ -113,6 +114,8 @@ python3 database/db.py
 python3 test_dsa.py
 ```
 *(Confirms that `MinHeap`, `Merge Sort`, `Binary Search`, and `OrderQueue` pass all unit tests).*
+
+Then run the route tests with `python3 test_routes.py` (uses a temporary copy of the database, so your data is not modified).
 
 #### Step 6: Start the Flask Web Server
 ```bash

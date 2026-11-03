@@ -6,6 +6,7 @@ Main Application: app.py
 
 import json
 import os
+import sqlite3
 import sys
 from datetime import datetime
 from typing import Dict, Any, List
@@ -177,6 +178,7 @@ if flask_available:
         name = request.form.get("name", "").strip()
         unit = request.form.get("unit", "").strip() or "Unit"
 
+        conn = None
         try:
             cost_price = float(request.form.get("cost_price", 0))
             selling_price = float(request.form.get("selling_price", 0))
@@ -214,16 +216,19 @@ if flask_available:
                 ),
             )
             conn.commit()
-            conn.close()
             flash(f"Product '{name}' added with SKU [{sku}]!", "success")
         except Exception as e:
             flash(f"Error adding product: {str(e)}", "danger")
+        finally:
+            if conn is not None:
+                conn.close()
 
         return redirect(url_for("inventory"))
 
     @app.route("/inventory/update/<int:product_id>", methods=["POST"])
     def update_product(product_id: int):
         """Update stock quantity and prices for a product."""
+        conn = None
         try:
             cost_price = float(request.form.get("cost_price", 0))
             selling_price = float(request.form.get("selling_price", 0))
@@ -251,25 +256,32 @@ if flask_available:
                 ),
             )
             conn.commit()
-            conn.close()
             flash("Product inventory updated successfully.", "success")
         except Exception as e:
             flash(f"Failed to update product: {str(e)}", "danger")
+        finally:
+            if conn is not None:
+                conn.close()
 
         return redirect(url_for("inventory"))
 
     @app.route("/inventory/delete/<int:product_id>", methods=["POST"])
     def delete_product(product_id: int):
         """Delete a product from the database."""
+        conn = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("DELETE FROM products WHERE id = ?;", (product_id,))
             conn.commit()
-            conn.close()
             flash("Product removed from catalog.", "info")
+        except sqlite3.IntegrityError:
+            flash("Cannot remove this product because it appears in past sales records. Set its stock to 0 instead to retire it.", "warning")
         except Exception as e:
             flash(f"Delete failed: {str(e)}", "danger")
+        finally:
+            if conn is not None:
+                conn.close()
 
         return redirect(url_for("inventory"))
 
@@ -388,7 +400,7 @@ if flask_available:
             total_items = sum(int(i.get("quantity", 0)) for i in cart_items)
 
             order_payload = {
-                "order_id": f"ORD-{int(datetime.now().timestamp())}",
+                "order_id": f"ORD-{int(datetime.now().timestamp() * 1000)}",
                 "customer_name": customer_name,
                 "items": cart_items,
                 "line_items": cart_items,
@@ -440,14 +452,15 @@ if flask_available:
     @app.route("/pos/dequeue", methods=["POST"])
     def pos_dequeue():
         """
-        Dequeues the next order at the head of the FIFO queue,
+        Processes the next order at the head of the FIFO queue,
         verifies current stock for all items, deducts inventory, and records sale.
+        The order is only removed after the sale is committed.
         """
         if dispatch_queue.is_empty():
             flash("Dispatch Queue is currently empty. No orders to process.", "info")
             return redirect(url_for("pos"))
 
-        order = dispatch_queue.dequeue()
+        order = dispatch_queue.peek()
         if not order:
             return redirect(url_for("pos"))
 
@@ -465,14 +478,14 @@ if flask_available:
 
                 if not prod_row:
                     flash(
-                        f"Order failed: Product {item.get('product_name')} not found.",
+                        f"Order failed: Product {item.get('product_name')} not found. The order is still at the front of the queue; use Dequeue to Edit to fix it.",
                         "danger",
                     )
                     return redirect(url_for("pos"))
 
                 if prod_row["stock_quantity"] < item["quantity"]:
                     flash(
-                        f"Stock Underflow! Only {prod_row['stock_quantity']} units left for {prod_row['name']}, but order needs {item['quantity']}.",
+                        f"Stock Underflow! Only {prod_row['stock_quantity']} units left for {prod_row['name']}, but order needs {item['quantity']}. The order is still at the front of the queue; use Dequeue to Edit to fix it.",
                         "danger",
                     )
                     return redirect(url_for("pos"))
@@ -495,7 +508,12 @@ if flask_available:
 
             # 3. Create sales record
             profit = round(order["total_amount"] - total_cost, 2)
-            receipt_num = f"REC-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            base_receipt = f"REC-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            receipt_num = base_receipt
+            suffix = 2
+            while cursor.execute("SELECT 1 FROM sales WHERE receipt_number = ?;", (receipt_num,)).fetchone():
+                receipt_num = f"{base_receipt}-{suffix}"
+                suffix += 1
 
             cursor.execute(
                 """
@@ -533,6 +551,7 @@ if flask_available:
                 )
 
             conn.commit()
+            dispatch_queue.dequeue()
             flash(
                 f"Processed order {order['order_id']} for {order['customer_name']}! Receipt {receipt_num} issued. Deducted {order['total_items_count']} total units.",
                 "success",
