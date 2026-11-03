@@ -181,9 +181,10 @@
                         </div>
                     </div>
 
+                    {% set peek_lines = peek_order['line_items'] if 'line_items' in peek_order else peek_order['items'] %}
                     <div class="pt-2 border-t border-[#D5DCD0] space-y-1">
-                        <div class="text-xs font-semibold text-[#5A4A3E]">Line Items ({{ peek_order.items|length }}):</div>
-                        {% for it in peek_order.items %}
+                        <div class="text-xs font-semibold text-[#5A4A3E]">Line Items ({{ peek_lines|length }}):</div>
+                        {% for it in peek_lines %}
                         <div class="flex justify-between items-center text-xs py-0.5">
                             <div>
                                 <span class="font-medium text-[#2B2118]">{{ it.product_name or it.name or ('Product #' ~ it.product_id) }}</span>
@@ -227,12 +228,13 @@
                         </thead>
                         <tbody class="divide-y divide-[#D5DCD0]">
                             {% for ord in queued_orders %}
+                            {% set ord_lines = ord['line_items'] if 'line_items' in ord else ord['items'] %}
                             <tr class="{% if loop.first %}bg-[#FAF8F5] font-semibold text-[#2D5A27]{% endif %}">
                                 <td class="p-3 font-mono font-bold">#{{ loop.index }}</td>
                                 <td class="p-3 font-mono">{{ ord.order_id }}</td>
                                 <td class="p-3 font-medium text-[#2B2118]">{{ ord.customer_name }}</td>
                                 <td class="p-3 truncate max-w-[120px]">
-                                    {% for it in ord.items %}{{ it.quantity }}x {{ it.product_name or it.name or ('Product #' ~ it.product_id) }}{% if not loop.last %}, {% endif %}{% endfor %}
+                                    {% for it in ord_lines %}{{ it.quantity }}x {{ it.product_name or it.name or ('Product #' ~ it.product_id) }}{% if not loop.last %}, {% endif %}{% endfor %}
                                 </td>
                                 <td class="p-3 text-right font-mono">{{ ord.total_items_count }}</td>
                                 <td class="p-3 text-right font-mono font-bold text-[#2B2118]">&#8369;{{ "{:,.2f}".format(ord.total_amount) }}</td>

@@ -391,6 +391,7 @@ if flask_available:
                 "order_id": f"ORD-{int(datetime.now().timestamp())}",
                 "customer_name": customer_name,
                 "items": cart_items,
+                "line_items": cart_items,
                 "total_items_count": total_items,
                 "total_amount": round(total_amount, 2),
                 "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -550,6 +551,9 @@ if flask_available:
     @app.route("/reports", methods=["GET"])
     def reports():
         raw_sales = fetch_all_sales()
+        for s in raw_sales:
+            if "line_items" not in s:
+                s["line_items"] = s.get("items", [])
         sort_by = request.args.get("sort_by", "revenue_desc")
 
         if sort_by == "revenue_desc":

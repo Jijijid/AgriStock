@@ -457,7 +457,9 @@ def fetch_all_sales(db_path: Optional[str] = None) -> List[Dict[str, Any]]:
         items_by_sale[sid].append(item)
 
     for s in sales:
-        s["items"] = items_by_sale.get(s["id"], [])
+        sale_items_list = items_by_sale.get(s["id"], [])
+        s["items"] = sale_items_list
+        s["line_items"] = sale_items_list
 
     return sales
 
