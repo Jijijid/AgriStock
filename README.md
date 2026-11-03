@@ -8,7 +8,7 @@
 
 ## 🌾 Project Overview
 
-AgriStock is an agricultural inventory management, Point-of-Sale (POS), and revenue ledger application designed for agricultural farm supply hubs.
+AgriStock is an agricultural inventory management, Point-of-Sale (POS), and revenue ledger application designed for agricultural farm supply hubs in Dagupan and Pangasinan.
 
 To fulfill strict algorithmic requirements without relying on built-in library shortcuts (such as `list.sort()`, `sorted()`, `heapq`, or SQL `ORDER BY / WHERE` clauses for algorithms), the core business logic is powered by **4 standalone Data Structures & Algorithms**:
 
