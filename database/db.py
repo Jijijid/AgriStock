@@ -476,11 +476,36 @@ def fetch_sale_items(sale_id: int, db_path: Optional[str] = None) -> List[Dict[s
 
 
 if __name__ == "__main__":
-    # Reset and seed database with new category-based SKUs
+    import sys
+
+    reset_flags = {"--reset", "-r", "--force"}
+    has_reset_flag = any(flag in sys.argv for flag in reset_flags)
+
     if os.path.exists(DB_FILE):
-        os.remove(DB_FILE)
-    print(f"Initializing database at: {DB_FILE}")
-    init_db(seed_data=True)
+        if has_reset_flag:
+            os.remove(DB_FILE)
+            print(f"Initializing database at: {DB_FILE}")
+            init_db(seed_data=True)
+        else:
+            try:
+                choice = input("WARNING: Database already exists. Reset and overwrite all data? [y/N]: ").strip().lower()
+            except (KeyboardInterrupt, EOFError):
+                print("\nOperation aborted by user.")
+                choice = "n"
+
+            if choice in ("y", "yes"):
+                os.remove(DB_FILE)
+                print(f"Initializing database at: {DB_FILE}")
+                init_db(seed_data=True)
+            else:
+                products = fetch_all_products()
+                sales = fetch_all_sales()
+                print(f"Database preserved without changes ({len(products)} products, {len(sales)} sales records).")
+                sys.exit(0)
+    else:
+        print(f"Initializing database at: {DB_FILE}")
+        init_db(seed_data=True)
+
     products = fetch_all_products()
     sales = fetch_all_sales()
     print(f"Database initialized with {len(products)} products and {len(sales)} sales records.")
