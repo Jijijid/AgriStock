@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --color-crop-green: #2D5A27;
+  --color-crop-dark: #1E3E1A;
+  --color-crop-hover: #366C2F;
+  --color-harvest-gold: #E09F3E;
+  --color-harvest-light: #F8E8D0;
+  --color-harvest-dark: #D4902F;
+  --color-farmhouse-cream: #F9F7F1;
+  --color-farmhouse-warm: #F1ECE1;
+  --color-rich-soil: #2B2118;
+  --color-soil-muted: #5A4A3E;
+  --color-terracotta-rust: #BF4327;
+  --color-terracotta-light: #FDECE8;
+  --color-sprout-green: #4E8752;
+  --color-sprout-light: #EBF4EC;
+  --color-field-sage: #D5DCD0;
+  --color-field-border: #C8D1C2;
+}
+
+body {
+  background-color: #F9F7F1;
+  color: #2B2118;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+}
+
+/* Custom scrollbars for data tables */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F1ECE1;
+}
+::-webkit-scrollbar-thumb {
+  background: #C8D1C2;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #8F9E89;
+}

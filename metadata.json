@@ -1,0 +1,6 @@
+{
+  "name": "AgriStock - Agricultural Inventory & DSA Management System",
+  "description": "Universidad de Dagupan ITECC04 DSA Final Project: Farm inventory, Min-Heap restock alerts, O(log n) SKU Binary Search, FIFO OrderQueue POS, and Merge Sort revenue ledger.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

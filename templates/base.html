@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AgriStock - Farm Supply Management{% endblock %}</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        crop: {
+                            green: '#2D5A27',
+                            dark: '#1E3E1A',
+                            hover: '#366C2F'
+                        },
+                        harvest: {
+                            gold: '#E09F3E',
+                            light: '#F8E8D0',
+                            border: '#D4902F'
+                        },
+                        farmhouse: {
+                            cream: '#F9F7F1',
+                            warm: '#F1ECE1'
+                        },
+                        soil: {
+                            rich: '#2B2118',
+                            muted: '#5A4A3E'
+                        },
+                        terracotta: {
+                            rust: '#BF4327',
+                            light: '#FDECE8'
+                        },
+                        sprout: {
+                            green: '#4E8752',
+                            light: '#EBF4EC'
+                        },
+                        field: {
+                            sage: '#D5DCD0',
+                            light: '#E9EFE6'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #F9F7F1;
+            color: #2B2118;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#F9F7F1] text-[#2B2118]">
+
+    <!-- Top Institution Bar -->
+    <div class="bg-[#1E3E1A] text-xs text-[#D5DCD0] px-4 py-1.5 border-b border-[#2D5A27] flex flex-wrap justify-between items-center">
+        <div class="flex items-center space-x-2">
+            <span class="inline-block w-2 h-2 rounded-full bg-[#E09F3E]"></span>
+            <span class="font-semibold text-white">Universidad de Dagupan</span>
+            <span>&bull;</span>
+            <span>School of Information Technology</span>
+            <span>&bull;</span>
+            <span class="text-[#E09F3E] font-medium">AgriStock Farm Supply Management</span>
+        </div>
+    </div>
+
+    <!-- Main Navigation Bar (Crop Green #2D5A27) -->
+    <header class="bg-[#2D5A27] text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Brand / Logo -->
+                <a href="{{ url_for('dashboard') }}" class="flex items-center space-x-3 group">
+                    <div class="w-10 h-10 rounded-lg bg-[#E09F3E] text-[#2B2118] flex items-center justify-center font-bold text-xl shadow group-hover:scale-105 transition-transform">
+                        <i class="fa-solid fa-seedling"></i>
+                    </div>
+                    <div>
+                        <div class="text-xl font-bold tracking-tight text-white">
+                            AgriStock
+                        </div>
+                        <div class="text-[11px] text-[#D5DCD0] -mt-0.5">Agricultural Warehouse & POS Ledger</div>
+                    </div>
+                </a>
+
+                <!-- Navigation Links -->
+                <nav class="flex items-center space-x-1 sm:space-x-2">
+                    <a href="{{ url_for('dashboard') }}" class="px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-[#366C2F] flex items-center space-x-2">
+                        <i class="fa-solid fa-chart-pie text-sm"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="{{ url_for('inventory') }}" class="px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-[#366C2F] flex items-center space-x-2">
+                        <i class="fa-solid fa-boxes-stacked text-sm"></i>
+                        <span>Inventory</span>
+                    </a>
+                    <a href="{{ url_for('pos') }}" class="px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-[#366C2F] flex items-center space-x-2 relative">
+                        <i class="fa-solid fa-cash-register text-sm"></i>
+                        <span>POS Checkout</span>
+                        {% if queue_size and queue_size > 0 %}
+                        <span class="ml-1 bg-[#E09F3E] text-[#2B2118] font-bold text-xs px-1.5 py-0.2 rounded-full">
+                            {{ queue_size }}
+                        </span>
+                        {% endif %}
+                    </a>
+                    <a href="{{ url_for('reports') }}" class="px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-[#366C2F] flex items-center space-x-2">
+                        <i class="fa-solid fa-file-invoice-dollar text-sm"></i>
+                        <span>Reports</span>
+                    </a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Flash Notification Messages -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 w-full">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="mb-3 px-4 py-3 rounded-lg border text-sm font-medium flex items-center justify-between
+                        {% if category == 'success' %}bg-[#EBF4EC] border-[#4E8752] text-[#2D5A27]
+                        {% elif category == 'danger' %}bg-[#FDECE8] border-[#BF4327] text-[#BF4327]
+                        {% elif category == 'warning' %}bg-[#F8E8D0] border-[#E09F3E] text-[#2B2118]
+                        {% else %}bg-white border-[#D5DCD0] text-[#2B2118]{% endif %}">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid {% if category == 'success' %}fa-circle-check{% elif category == 'danger' %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}"></i>
+                            <span>{{ message }}</span>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-[#2B2118] text-[#D5DCD0] border-t border-[#3E3024] mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row items-center justify-between text-xs space-y-4 md:space-y-0">
+            <div>
+                <p class="font-bold text-white tracking-wide">AgriStock &mdash; Farm Supply Management System</p>
+                <p class="text-[#8F9E89] mt-0.5">Universidad de Dagupan | School of Information Technology</p>
+            </div>
+
+            <!-- Bottom links with logos for Python Code and Defense Guide -->
+            <div class="flex items-center space-x-3">
+                <a href="{{ url_for('code_viewer') }}" class="px-3 py-1.5 rounded-lg border text-xs font-semibold bg-[#3E3024] text-[#D5DCD0] border-[#5A4A3E] hover:bg-[#4E3D2F] hover:text-white transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-code text-[#E09F3E]"></i>
+                    <span>Python Code</span>
+                </a>
+                <a href="{{ url_for('defense_guide') }}" class="px-3 py-1.5 rounded-lg border text-xs font-semibold bg-[#3E3024] text-[#D5DCD0] border-[#5A4A3E] hover:bg-[#4E3D2F] hover:text-white transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-graduation-cap text-[#E09F3E]"></i>
+                    <span>Defense Guide</span>
+                </a>
+            </div>
+
+            <div class="flex items-center space-x-4 text-[#8F9E89] text-[11px]">
+                <span>Fertilizers</span>
+                <span>&bull;</span>
+                <span>Hybrid Seeds</span>
+                <span>&bull;</span>
+                <span>Livestock Feeds</span>
+                <span>&bull;</span>
+                <span>Agrochemicals</span>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

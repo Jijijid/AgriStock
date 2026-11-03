@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Project Defense Guide - AgriStock{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Header Section -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-extrabold text-[#2B2118]">Oral Defense & Panelist QA Guide</h1>
+            <p class="text-xs text-[#5A4A3E]">Comprehensive preparation guide for Universidad de Dagupan ITECC04 project defense.</p>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <span class="text-xs text-[#2D5A27] font-bold bg-[#EBF4EC] px-3 py-1.5 rounded-lg border border-[#4E8752]">
+                <i class="fa-solid fa-graduation-cap text-[#4E8752] mr-1"></i> ITECC04 DSA Defense
+            </span>
+        </div>
+    </div>
+
+    <!-- Defense Highlights Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- Min-Heap Card -->
+        <div class="bg-white p-5 rounded-xl border border-[#D5DCD0] shadow-sm space-y-3">
+            <div class="flex items-center space-x-2">
+                <span class="w-7 h-7 rounded-lg bg-[#BF4327]/10 text-[#BF4327] flex items-center justify-center font-bold text-sm">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </span>
+                <h3 class="font-bold text-sm text-[#2B2118]">1. Min-Heap Priority Restock Queue</h3>
+            </div>
+            <p class="text-xs text-[#5A4A3E] leading-relaxed">
+                <strong>Why Min-Heap over Array Sorting?</strong><br>
+                When a shipment arrives or an order is fulfilled, stock changes dynamically. A Min-Heap allows inserting or extracting the lowest-stock item in O(log n) time and inspecting the critical bottleneck in O(1) time without having to re-sort the entire warehouse inventory.
+            </p>
+            <div class="text-[11px] bg-[#FAF8F5] p-2.5 rounded border border-[#D5DCD0]/60 text-[#2B2118]">
+                <strong>Key Defense Line:</strong> "We chose a binary Min-Heap to guarantee that the agricultural co-op immediately knows which critical crop input is nearing stockout without scanning all inventory items."
+            </div>
+        </div>
+
+        <!-- Merge Sort Card -->
+        <div class="bg-white p-5 rounded-xl border border-[#D5DCD0] shadow-sm space-y-3">
+            <div class="flex items-center space-x-2">
+                <span class="w-7 h-7 rounded-lg bg-[#4E8752]/10 text-[#4E8752] flex items-center justify-center font-bold text-sm">
+                    <i class="fa-solid fa-arrow-down-wide-short"></i>
+                </span>
+                <h3 class="font-bold text-sm text-[#2B2118]">2. Merge Sort Revenue Ledger</h3>
+            </div>
+            <p class="text-xs text-[#5A4A3E] leading-relaxed">
+                <strong>Why Merge Sort over QuickSort or BubbleSort?</strong><br>
+                Merge Sort guarantees O(n log n) time complexity in the best, average, and worst cases (no O(n²) worst case like QuickSort on already-sorted receipts). Furthermore, Merge Sort is a <em>stable sort</em>, preserving original transaction order for identical revenue values.
+            </p>
+            <div class="text-[11px] bg-[#FAF8F5] p-2.5 rounded border border-[#D5DCD0]/60 text-[#2B2118]">
+                <strong>Key Defense Line:</strong> "Merge Sort's divide-and-conquer paradigm guarantees consistent reporting speed and stability for auditing fiscal records."
+            </div>
+        </div>
+
+        <!-- Binary Search Card -->
+        <div class="bg-white p-5 rounded-xl border border-[#D5DCD0] shadow-sm space-y-3">
+            <div class="flex items-center space-x-2">
+                <span class="w-7 h-7 rounded-lg bg-[#E09F3E]/10 text-[#E09F3E] flex items-center justify-center font-bold text-sm">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </span>
+                <h3 class="font-bold text-sm text-[#2B2118]">3. Binary Search SKU Lookup</h3>
+            </div>
+            <p class="text-xs text-[#5A4A3E] leading-relaxed">
+                <strong>Why Binary Search over Linear Scan?</strong><br>
+                Warehouse barcodes and SKUs are standardized. With 10,000 agricultural SKUs, a linear scan requires up to 10,000 comparisons, whereas Binary Search cuts the search space in half at each iteration, requiring at most 14 comparisons (log₂ 10,000 ≈ 13.3).
+            </p>
+            <div class="text-[11px] bg-[#FAF8F5] p-2.5 rounded border border-[#D5DCD0]/60 text-[#2B2118]">
+                <strong>Key Defense Line:</strong> "By maintaining products ordered by SKU, cashier scanning operates at logarithmic speed O(log n)."
+            </div>
+        </div>
+
+        <!-- FIFO Queue Card -->
+        <div class="bg-white p-5 rounded-xl border border-[#D5DCD0] shadow-sm space-y-3">
+            <div class="flex items-center space-x-2">
+                <span class="w-7 h-7 rounded-lg bg-[#2D5A27]/10 text-[#2D5A27] flex items-center justify-center font-bold text-sm">
+                    <i class="fa-solid fa-layer-group"></i>
+                </span>
+                <h3 class="font-bold text-sm text-[#2B2118]">4. FIFO Warehouse Dispatch Queue</h3>
+            </div>
+            <p class="text-xs text-[#5A4A3E] leading-relaxed">
+                <strong>Why an Explicit Queue?</strong><br>
+                Prevents concurrency hazards where two cashiers sell the last bag of Urea Fertilizer simultaneously. Orders are staged in order of arrival; warehouse dispatch deducts stock sequentially. If an order needs editing, dequeuing from the queue head maintains strict FIFO discipline.
+            </p>
+            <div class="text-[11px] bg-[#FAF8F5] p-2.5 rounded border border-[#D5DCD0]/60 text-[#2B2118]">
+                <strong>Key Defense Line:</strong> "The FIFO Queue decouples order placement from inventory deduction, preventing race conditions during peak planting seasons."
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Likely Panelist Questions & Model Answers -->
+    <div class="bg-white rounded-xl border border-[#D5DCD0] p-6 shadow-sm space-y-4">
+        <h3 class="font-bold text-base text-[#2B2118] border-b border-[#D5DCD0] pb-2">
+            Frequently Asked Defense Questions (Universidad de Dagupan Panel)
+        </h3>
+
+        <div class="space-y-4 text-xs">
+            <div class="space-y-1">
+                <p class="font-bold text-[#2D5A27]">Q1: Why did you implement custom DSA classes instead of using Python's built-in sorted(), heapq, or SQL queries?</p>
+                <p class="text-[#5A4A3E] pl-3 border-l-2 border-[#2D5A27]">
+                    "Built-in methods hide internal mechanics. To fulfill the ITECC04 project requirements and demonstrate complete algorithmic understanding, we implemented pointer arithmetic, recursive splitting, and heap invariant maintenance directly in pure Python."
+                </p>
+            </div>
+
+            <div class="space-y-1">
+                <p class="font-bold text-[#2D5A27]">Q2: How does the category-based SKU generation work?</p>
+                <p class="text-[#5A4A3E] pl-3 border-l-2 border-[#2D5A27]">
+                    "Each category uses an agricultural prefix: FERT for fertilizers, SEED for seeds, FEED for feeds, and AGRO for agrochemicals. The system scans existing SKUs in the database for that prefix, finds the highest numeric sequence, and formats the next sequential SKU (e.g., FERT-006)."
+                </p>
+            </div>
+
+            <div class="space-y-1">
+                <p class="font-bold text-[#2D5A27]">Q3: How does the queue handle edits without breaking FIFO order?</p>
+                <p class="text-[#5A4A3E] pl-3 border-l-2 border-[#2D5A27]">
+                    "The cashier can dequeue the order currently at the head of the dispatch queue, which pulls it out in strict O(1) FIFO order back into the active ticket for corrections. This prevents arbitrary-index mutations while keeping inventory state clean."
+                </p>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}Revenue Analytics | AgriStock{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Header & Filter Controls -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-extrabold text-[#2B2118]">Revenue Analytics & Sales Ledger</h1>
+            <p class="text-xs text-[#5A4A3E]">Financial records and sales transactions history. Click any receipt to inspect sold products.</p>
+        </div>
+
+        <!-- Filter Controls Form -->
+        <form method="GET" action="{{ url_for('reports') }}" class="flex items-center space-x-2">
+            <label class="text-xs font-semibold text-[#5A4A3E]">Sort By:</label>
+            <select name="sort_by" onchange="this.form.submit()" class="px-3 py-2 border border-[#D5DCD0] rounded-lg text-sm bg-white font-medium focus:ring-2 focus:ring-[#2D5A27]">
+                <option value="revenue_desc" {% if sort_by == 'revenue_desc' %}selected{% endif %}>Highest Revenue</option>
+                <option value="revenue_asc" {% if sort_by == 'revenue_asc' %}selected{% endif %}>Lowest Revenue</option>
+                <option value="profit_desc" {% if sort_by == 'profit_desc' %}selected{% endif %}>Highest Profit Margin</option>
+                <option value="date_desc" {% if sort_by == 'date_desc' %}selected{% endif %}>Date: Newest First</option>
+                <option value="date_asc" {% if sort_by == 'date_asc' %}selected{% endif %}>Date: Oldest First</option>
+            </select>
+        </form>
+    </div>
+
+    <!-- KPI Metric Summary -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-xl p-4 border border-[#D5DCD0] shadow-sm">
+            <span class="text-xs text-[#5A4A3E] uppercase font-semibold">Total Revenue</span>
+            <p class="text-2xl font-black text-[#2D5A27] mt-1">&#8369;{{ "{:,.2f}".format(total_rev) }}</p>
+        </div>
+        <div class="bg-white rounded-xl p-4 border border-[#D5DCD0] shadow-sm">
+            <span class="text-xs text-[#5A4A3E] uppercase font-semibold">Net Realized Profit</span>
+            <p class="text-2xl font-black text-[#4E8752] mt-1">&#8369;{{ "{:,.2f}".format(total_profit) }}</p>
+        </div>
+        <div class="bg-white rounded-xl p-4 border border-[#D5DCD0] shadow-sm">
+            <span class="text-xs text-[#5A4A3E] uppercase font-semibold">Average Sale Value</span>
+            <p class="text-2xl font-black text-[#2B2118] mt-1">&#8369;{{ "{:,.2f}".format(avg_order) }}</p>
+        </div>
+        <div class="bg-white rounded-xl p-4 border border-[#D5DCD0] shadow-sm">
+            <span class="text-xs text-[#5A4A3E] uppercase font-semibold">Total Transactions</span>
+            <p class="text-2xl font-black text-[#E09F3E] mt-1">{{ total_transactions }} Receipts</p>
+        </div>
+    </div>
+
+    <!-- SALES LEDGER TABLE -->
+    <div class="bg-white rounded-xl border border-[#D5DCD0] shadow-sm overflow-hidden">
+        <div class="p-4 bg-[#FAF8F5] border-b border-[#D5DCD0] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+                <h2 class="font-bold text-[#2B2118] text-sm">Dispatched Sales Ledger</h2>
+                <p class="text-[11px] text-[#5A4A3E]">Click on any transaction row to expand and view itemized products sold.</p>
+            </div>
+            <span class="text-xs font-mono font-bold text-[#2D5A27] bg-[#EBF4EC] px-2.5 py-1 rounded-full border border-[#D5DCD0]">
+                {{ sales|length }} Receipts
+            </span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-[#2B2118]">
+                <thead class="bg-[#F1ECE1] text-xs uppercase font-semibold text-[#5A4A3E] border-b border-[#D5DCD0]">
+                    <tr>
+                        <th class="w-8 px-2 py-3 text-center"></th>
+                        <th class="px-3 py-3">#</th>
+                        <th class="px-4 py-3">Receipt Number</th>
+                        <th class="px-4 py-3">Customer / Cooperative</th>
+                        <th class="px-4 py-3 text-right">Items Sold</th>
+                        <th class="px-4 py-3 text-right">Cost Basis</th>
+                        <th class="px-4 py-3 text-right">Total Revenue</th>
+                        <th class="px-4 py-3 text-right">Profit</th>
+                        <th class="px-4 py-3">Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#D5DCD0]">
+                    {% for sale in sales %}
+                    <!-- Transaction Summary Row (Clickable) -->
+                    <tr onclick="toggleSaleRow('{{ sale.id }}')"
+                        class="hover:bg-[#FAF8F5] transition-colors cursor-pointer select-none group">
+                        <td class="px-2 py-3 text-center">
+                            <i id="chevron-{{ sale.id }}" class="fa-solid fa-chevron-right text-xs text-[#2D5A27] transition-transform duration-200"></i>
+                        </td>
+                        <td class="px-3 py-3 font-mono font-bold text-xs text-[#5A4A3E]">
+                            #{{ loop.index }}
+                        </td>
+                        <td class="px-4 py-3 font-mono text-xs font-bold text-[#2D5A27] group-hover:underline">
+                            {{ sale.receipt_number }}
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="font-medium text-[#2B2118]">{{ sale.customer_name }}</div>
+                            <span class="text-[10px] text-[#5A4A3E]">Click to view {{ sale.items|length }} item(s)</span>
+                        </td>
+                        <td class="px-4 py-3 text-right font-mono">
+                            <span class="inline-block px-2 py-0.5 rounded bg-[#F1ECE1] text-xs font-bold">
+                                {{ sale.items_count }} units
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-right font-mono text-[#5A4A3E]">
+                            &#8369;{{ "{:,.2f}".format(sale.cost_total) }}
+                        </td>
+                        <td class="px-4 py-3 text-right font-mono font-black text-[#2B2118]">
+                            &#8369;{{ "{:,.2f}".format(sale.total_amount) }}
+                        </td>
+                        <td class="px-4 py-3 text-right font-mono font-bold text-[#4E8752]">
+                            +&#8369;{{ "{:,.2f}".format(sale.profit) }}
+                        </td>
+                        <td class="px-4 py-3 text-xs text-[#5A4A3E]">
+                            {{ sale.timestamp }}
+                        </td>
+                    </tr>
+
+                    <!-- Expandable Itemized Products Sold Details Row -->
+                    <tr id="details-{{ sale.id }}" class="hidden bg-[#FAF8F5]/90 border-t border-b border-[#D5DCD0]">
+                        <td colspan="9" class="p-4 bg-gradient-to-b from-[#F9F7F1] to-white">
+                            <div class="max-w-4xl mx-auto space-y-3">
+                                <div class="flex items-center justify-between pb-2 border-b border-[#D5DCD0]">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fa-solid fa-receipt text-[#2D5A27]"></i>
+                                        <h4 class="font-bold text-xs text-[#2B2118]">
+                                            Itemized Products Sold &bull; Receipt {{ sale.receipt_number }}
+                                        </h4>
+                                    </div>
+                                    <span class="text-[11px] text-[#5A4A3E]">
+                                        Customer: <strong>{{ sale.customer_name }}</strong> &bull; {{ sale.timestamp }}
+                                    </span>
+                                </div>
+
+                                {% if sale.items and sale.items|length > 0 %}
+                                <div class="border border-[#D5DCD0] rounded-lg overflow-hidden bg-white shadow-xs">
+                                    <table class="w-full text-left text-xs">
+                                        <thead class="bg-[#F1ECE1] font-semibold text-[#5A4A3E]">
+                                            <tr>
+                                                <th class="p-2.5">Product Name</th>
+                                                <th class="p-2.5">SKU</th>
+                                                <th class="p-2.5 text-center">Quantity</th>
+                                                <th class="p-2.5 text-right">Unit Price</th>
+                                                <th class="p-2.5 text-right">Line Subtotal</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-[#D5DCD0]">
+                                            {% for it in sale.items %}
+                                            <tr class="hover:bg-[#FAF8F5]">
+                                                <td class="p-2.5 font-semibold text-[#2B2118]">
+                                                    {{ it.product_name or it.name or ('Product #' ~ it.product_id) }}
+                                                </td>
+                                                <td class="p-2.5 font-mono text-[11px] text-[#2D5A27]">
+                                                    {{ it.sku }}
+                                                </td>
+                                                <td class="p-2.5 text-center font-mono font-bold">
+                                                    {{ it.quantity }}
+                                                </td>
+                                                <td class="p-2.5 text-right font-mono text-[#5A4A3E]">
+                                                    &#8369;{{ "{:,.2f}".format(it.unit_price) }}
+                                                </td>
+                                                <td class="p-2.5 text-right font-mono font-bold text-[#2D5A27]">
+                                                    &#8369;{{ "{:,.2f}".format(it.subtotal) }}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                        <tfoot class="bg-[#FAF8F5] border-t border-[#D5DCD0] text-xs font-semibold">
+                                            <tr>
+                                                <td colspan="2" class="p-2.5 text-[#5A4A3E]">
+                                                    Total Units: <strong>{{ sale.items_count }}</strong>
+                                                </td>
+                                                <td colspan="2" class="p-2.5 text-right text-[#5A4A3E]">
+                                                    Transaction Total:
+                                                </td>
+                                                <td class="p-2.5 text-right font-mono font-black text-sm text-[#2D5A27]">
+                                                    &#8369;{{ "{:,.2f}".format(sale.total_amount) }}
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                                {% else %}
+                                <div class="p-3 text-center text-xs text-[#5A4A3E] bg-white rounded-lg border border-[#D5DCD0]">
+                                    No itemized line records recorded for this historical transaction. Total units sold: {{ sale.items_count }}.
+                                </div>
+                                {% endif %}
+
+                                <div class="flex flex-wrap items-center justify-between text-[11px] text-[#5A4A3E] pt-1 px-1">
+                                    <div>
+                                        Cost Basis: <strong class="font-mono text-[#2B2118]">&#8369;{{ "{:,.2f}".format(sale.cost_total) }}</strong>
+                                    </div>
+                                    <div>
+                                        Net Realized Profit: <strong class="font-mono text-[#4E8752]">&#8369;{{ "{:,.2f}".format(sale.profit) }}</strong>
+                                    </div>
+                                    <div>
+                                        Profit Margin: <strong class="font-mono text-[#2D5A27]">
+                                            {{ "{:.1f}%".format((sale.profit / sale.total_amount * 100) if sale.total_amount > 0 else 0) }}
+                                        </strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    function toggleSaleRow(id) {
+        const row = document.getElementById('details-' + id);
+        const chevron = document.getElementById('chevron-' + id);
+        if (!row) return;
+
+        const isHidden = row.classList.contains('hidden');
+        if (isHidden) {
+            row.classList.remove('hidden');
+            if (chevron) {
+                chevron.classList.add('rotate-90');
+            }
+        } else {
+            row.classList.add('hidden');
+            if (chevron) {
+                chevron.classList.remove('rotate-90');
+            }
+        }
+    }
+</script>
+{% endblock %}

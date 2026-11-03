@@ -1,0 +1,492 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory | AgriStock{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Header & Action Row -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-extrabold text-[#2B2118]">Farm Supply Inventory Catalog</h1>
+            <p class="text-xs text-[#5A4A3E]">Search products by name or SKU, manage stock levels, and organize agricultural categories.</p>
+        </div>
+
+        <button onclick="openAddModal()" class="px-4 py-2 bg-[#2D5A27] hover:bg-[#366C2F] text-white font-bold text-sm rounded-lg shadow transition flex items-center space-x-2">
+            <i class="fa-solid fa-plus"></i>
+            <span>Add New Product</span>
+        </button>
+    </div>
+
+    <!-- SEARCH & CATEGORY FILTER BAR -->
+    <div class="bg-white rounded-xl border border-[#D5DCD0] p-5 shadow-sm space-y-4">
+        
+        <form id="inventorySearchForm" method="GET" action="{{ url_for('inventory') }}" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div class="relative flex-grow">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#5A4A3E]">
+                    <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                </div>
+                <input type="text" id="inventorySearchInput" name="q" value="{{ search_query }}" autocomplete="off"
+                    placeholder="Search products by name or SKU (e.g. Urea, FERT-001)..."
+                    class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-[#D5DCD0] focus:ring-2 focus:ring-[#2D5A27] focus:border-transparent text-sm bg-[#F9F7F1]">
+                
+                <!-- Instant Suggestions Dropdown -->
+                <div id="inventorySuggestionsDropdown" 
+                     class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-[#D5DCD0] rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-[#D5DCD0]/60 max-h-80 overflow-y-auto">
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <select name="category" onchange="this.form.submit()" class="px-3 py-2.5 border border-[#D5DCD0] rounded-lg text-sm bg-[#F9F7F1] text-[#2B2118]">
+                    <option value="All" {% if selected_category == 'All' %}selected{% endif %}>All Categories</option>
+                    <option value="Fertilizers" {% if selected_category == 'Fertilizers' %}selected{% endif %}>Fertilizers</option>
+                    <option value="Seeds" {% if selected_category == 'Seeds' %}selected{% endif %}>Seeds</option>
+                    <option value="Feeds" {% if selected_category == 'Feeds' %}selected{% endif %}>Feeds</option>
+                    <option value="Agrochemicals" {% if selected_category == 'Agrochemicals' %}selected{% endif %}>Agrochemicals</option>
+                </select>
+                <button type="submit" class="px-5 py-2.5 bg-[#2D5A27] hover:bg-[#366C2F] text-white font-bold text-sm rounded-lg transition flex items-center justify-center space-x-2 shadow">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <span>Search</span>
+                </button>
+                {% if search_query or selected_category != 'All' %}
+                <a href="{{ url_for('inventory') }}" class="px-3 py-2.5 border border-[#D5DCD0] hover:bg-slate-100 text-[#5A4A3E] text-sm rounded-lg transition flex items-center justify-center">
+                    Reset
+                </a>
+                {% endif %}
+            </div>
+        </form>
+
+        <div class="text-xs text-[#5A4A3E] flex items-center justify-between">
+            <div>
+                Showing <strong>{{ products|length }}</strong> product(s)
+                {% if search_query %} matching &ldquo;<strong>{{ search_query }}</strong>&rdquo;{% endif %}
+                {% if selected_category != 'All' %} in <strong>{{ selected_category }}</strong>{% endif %}
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- INVENTORY CATALOG TABLE -->
+    <div class="bg-white rounded-xl border border-[#D5DCD0] shadow-sm overflow-hidden">
+        <div class="p-4 bg-[#FAF8F5] border-b border-[#D5DCD0] flex justify-between items-center">
+            <h2 class="font-bold text-[#2B2118]">Current Stock Inventory</h2>
+            <span class="text-xs font-mono text-[#5A4A3E]">{{ products|length }} Products</span>
+        </div>
+
+        {% if products %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-[#2B2118]">
+                <thead class="bg-[#F1ECE1] text-xs uppercase font-semibold text-[#5A4A3E] border-b border-[#D5DCD0]">
+                    <tr>
+                        <th class="px-4 py-3">SKU</th>
+                        <th class="px-4 py-3">Product Name</th>
+                        <th class="px-4 py-3">Category</th>
+                        <th class="px-4 py-3 text-right">Cost Price</th>
+                        <th class="px-4 py-3 text-right">Selling Price</th>
+                        <th class="px-4 py-3 text-right">Stock</th>
+                        <th class="px-4 py-3 text-right">Reorder Min</th>
+                        <th class="px-4 py-3 text-center">Status</th>
+                        <th class="px-4 py-3 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#D5DCD0]">
+                    {% for item in products %}
+                    {% set is_low = item.stock_quantity <= item.reorder_threshold %}
+                    <tr class="hover:bg-[#FAF8F5] transition-colors">
+                        <td class="px-4 py-3 font-mono font-bold text-xs text-[#2D5A27]">
+                            {{ item.sku }}
+                        </td>
+                        <td class="px-4 py-3 font-semibold">
+                            {{ item.name }}
+                            <span class="block text-xs text-[#5A4A3E] font-normal">{{ item.unit }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-xs">
+                            <span class="px-2 py-0.5 rounded-full bg-slate-100 text-[#5A4A3E]">
+                                {{ item.category }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-right font-mono text-[#5A4A3E]">
+                            &#8369;{{ "{:,.2f}".format(item.cost_price) }}
+                        </td>
+                        <td class="px-4 py-3 text-right font-mono font-bold text-[#2B2118]">
+                            &#8369;{{ "{:,.2f}".format(item.selling_price) }}
+                        </td>
+                        <td class="px-4 py-3 text-right font-mono font-bold {% if is_low %}text-[#BF4327]{% else %}text-[#4E8752]{% endif %}">
+                            {{ item.stock_quantity }}
+                        </td>
+                        <td class="px-4 py-3 text-right font-mono text-xs text-[#5A4A3E]">
+                            {{ item.reorder_threshold }}
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            {% if is_low %}
+                                <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-[#FDECE8] text-[#BF4327]">
+                                    Low Stock
+                                </span>
+                            {% else %}
+                                <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-[#EBF4EC] text-[#4E8752]">
+                                    In Stock
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <div class="flex items-center justify-center space-x-1">
+                                <button onclick="openEditModal({{ item.id }}, '{{ item.name }}', '{{ item.sku }}', {{ item.cost_price }}, {{ item.selling_price }}, {{ item.stock_quantity }}, {{ item.reorder_threshold }})"
+                                    class="p-1.5 text-xs rounded hover:bg-slate-200 text-[#2D5A27]" title="Edit Stock / Price">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button onclick="openDeleteModal({{ item.id }}, '{{ item.name }}', '{{ item.sku }}')"
+                                    class="p-1.5 text-xs rounded hover:bg-[#FDECE8] text-[#BF4327]" title="Delete Product">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-[#5A4A3E]">
+            <i class="fa-solid fa-box-open text-4xl text-slate-300 mb-2"></i>
+            <p class="font-bold text-[#2B2118]">No products matched your criteria</p>
+            <p class="text-xs">Try clearing your search query or choosing another category.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- ADD PRODUCT MODAL (WITH CATEGORY-BASED SKU GENERATION) -->
+<div id="addModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl border border-[#D5DCD0]">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-[#2B2118]">Add Agricultural Product</h3>
+            <button onclick="document.getElementById('addModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        <form id="addForm" method="POST" action="{{ url_for('add_product') }}" onsubmit="return validateAddForm(event)" class="space-y-4">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-[#5A4A3E] mb-1">Product Category</label>
+                    <select id="addCategorySelect" name="category" required onchange="onCategoryChange()" class="w-full px-3 py-2 border rounded-lg text-sm bg-[#F9F7F1]">
+                        <option value="Fertilizers">Fertilizers (FERT-###)</option>
+                        <option value="Seeds">Seeds (SEED-###)</option>
+                        <option value="Feeds">Feeds (FEED-###)</option>
+                        <option value="Agrochemicals">Agrochemicals (AGRO-###)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-[#5A4A3E] mb-1 flex justify-between">
+                        <span>Generated SKU</span>
+                        <span class="text-[10px] text-[#2D5A27] font-bold">Auto-generated</span>
+                    </label>
+                    <input id="addSkuInput" type="text" name="sku" required class="w-full px-3 py-2 border rounded-lg text-sm font-mono font-bold uppercase bg-[#EBF4EC] text-[#2D5A27]">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-[#5A4A3E] mb-1">Product Description / Name</label>
+                <input id="addNameInput" type="text" name="name" required placeholder="e.g. Zinc Sulfate Foliar Spray" class="w-full px-3 py-2 border rounded-lg text-sm bg-[#F9F7F1]">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-[#5A4A3E] mb-1">Cost Price (&#8369;)</label>
+                    <input type="number" step="0.01" min="0" name="cost_price" required placeholder="350.00" class="w-full px-3 py-2 border rounded-lg text-sm bg-[#F9F7F1]">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-[#5A4A3E] mb-1">Selling Price (&#8369;)</label>
+                    <input type="number" step="0.01" min="0.01" name="selling_price" required placeholder="480.00" class="w-full px-3 py-2 border rounded-lg text-sm bg-[#F9F7F1]">
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-[#5A4A3E] mb-1">Initial Stock</label>
+                    <input id="addStockInput" type="number" min="0" name="stock_quantity" required placeholder="25" class="w-full px-3 py-2 border rounded-lg text-sm bg-[#F9F7F1]">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-[#5A4A3E] mb-1">Reorder Min</label>
+                    <input type="number" min="1" name="reorder_threshold" required value="15" class="w-full px-3 py-2 border rounded-lg text-sm bg-[#F9F7F1]">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-[#5A4A3E] mb-1">Unit of Measure</label>
+                    <input type="text" name="unit" required placeholder="50kg sack" class="w-full px-3 py-2 border rounded-lg text-sm bg-[#F9F7F1]">
+                </div>
+            </div>
+            <div class="pt-3 flex justify-end space-x-2">
+                <button type="button" onclick="document.getElementById('addModal').classList.add('hidden')" class="px-4 py-2 border rounded-lg text-sm text-[#5A4A3E]">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-[#2D5A27] hover:bg-[#366C2F] text-white font-bold rounded-lg text-sm">Save Product</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT PRODUCT MODAL -->
+<div id="editModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-xl border border-[#D5DCD0]">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-[#2B2118]">Update Inventory & Pricing</h3>
+            <button onclick="document.getElementById('editModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        <form id="editForm" method="POST" action="" onsubmit="return validateEditForm(event)" class="space-y-4">
+            <div>
+                <p id="editProductName" class="font-bold text-sm text-[#2D5A27]"></p>
+                <p id="editProductSku" class="font-mono text-xs text-[#5A4A3E] mb-2"></p>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-[#5A4A3E] mb-1">Cost Price (&#8369;)</label>
+                    <input id="editCost" type="number" step="0.01" min="0" name="cost_price" required class="w-full px-3 py-2 border rounded-lg text-sm bg-[#F9F7F1]">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-[#5A4A3E] mb-1">Selling Price (&#8369;)</label>
+                    <input id="editPrice" type="number" step="0.01" min="0.01" name="selling_price" required class="w-full px-3 py-2 border rounded-lg text-sm bg-[#F9F7F1]">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-[#5A4A3E] mb-1">Stock Quantity</label>
+                    <input id="editStock" type="number" min="0" name="stock_quantity" required class="w-full px-3 py-2 border rounded-lg text-sm bg-[#F9F7F1]">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-[#5A4A3E] mb-1">Reorder Threshold</label>
+                    <input id="editThreshold" type="number" min="1" name="reorder_threshold" required class="w-full px-3 py-2 border rounded-lg text-sm bg-[#F9F7F1]">
+                </div>
+            </div>
+            <div class="pt-3 flex justify-end space-x-2">
+                <button type="button" onclick="document.getElementById('editModal').classList.add('hidden')" class="px-4 py-2 border rounded-lg text-sm text-[#5A4A3E]">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-[#2D5A27] hover:bg-[#366C2F] text-white font-bold rounded-lg text-sm">Update Stock</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- POPUP 1: ZERO STOCK VERIFICATION MODAL -->
+<div id="zeroStockModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl border-2 border-[#BF4327]">
+        <div class="flex items-start space-x-3">
+            <div class="w-10 h-10 rounded-full bg-[#FDECE8] text-[#BF4327] flex items-center justify-center flex-shrink-0 text-xl font-bold mt-0.5">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-extrabold text-[#2B2118]">Zero Stock Verification Warning</h3>
+                <p id="zeroStockMessage" class="text-xs text-[#5A4A3E] mt-1 leading-relaxed"></p>
+                <div class="mt-2 p-2.5 bg-[#FDECE8] rounded-lg border border-[#BF4327]/30 text-xs text-[#BF4327]">
+                    <strong>Alert:</strong> This item will be marked completely <em>Out of Stock</em> and will immediately become <strong>#1 Critical Restock Priority</strong> on the dashboard.
+                </div>
+            </div>
+        </div>
+        <div class="mt-5 pt-3 border-t border-[#D5DCD0] flex justify-end space-x-2">
+            <button type="button" onclick="document.getElementById('zeroStockModal').classList.add('hidden')" class="px-4 py-2 border border-[#D5DCD0] rounded-lg text-xs font-semibold text-[#5A4A3E]">
+                No, Change Quantity
+            </button>
+            <button type="button" id="confirmZeroStockBtn" class="px-4 py-2 bg-[#BF4327] hover:bg-[#a5371e] text-white text-xs font-bold rounded-lg shadow">
+                Yes, Set Stock to 0
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- POPUP 2: DELETE CONFIRMATION MODAL -->
+<div id="deleteModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl border border-[#D5DCD0]">
+        <div class="flex items-start space-x-3">
+            <div class="w-10 h-10 rounded-full bg-[#FDECE8] text-[#BF4327] flex items-center justify-center flex-shrink-0 text-lg font-bold mt-0.5">
+                <i class="fa-solid fa-trash-can"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-extrabold text-[#2B2118]">Delete Product Confirmation</h3>
+                <p id="deleteModalText" class="text-xs text-[#5A4A3E] mt-1 leading-relaxed"></p>
+                <p class="text-xs text-[#BF4327] mt-1">This action cannot be undone.</p>
+            </div>
+        </div>
+        <form id="deleteProductForm" method="POST" action="">
+            <div class="mt-5 pt-3 border-t border-[#D5DCD0] flex justify-end space-x-2">
+                <button type="button" onclick="document.getElementById('deleteModal').classList.add('hidden')" class="px-4 py-2 border border-[#D5DCD0] rounded-lg text-xs font-semibold text-[#5A4A3E]">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-[#BF4327] hover:bg-[#a5371e] text-white text-xs font-bold rounded-lg shadow">
+                    Confirm Delete
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const nextSkus = {{ next_skus|tojson|safe if next_skus else "{}" }};
+
+    function onCategoryChange() {
+        const cat = document.getElementById('addCategorySelect').value;
+        if (nextSkus && nextSkus[cat]) {
+            document.getElementById('addSkuInput').value = nextSkus[cat];
+        }
+    }
+
+    function openAddModal() {
+        onCategoryChange();
+        document.getElementById('addModal').classList.remove('hidden');
+    }
+
+    let pendingZeroStockSubmit = null;
+
+    function validateAddForm(e) {
+        const stock = parseInt(document.getElementById('addStockInput').value, 10);
+        if (stock === 0) {
+            e.preventDefault();
+            const name = document.getElementById('addNameInput').value;
+            document.getElementById('zeroStockMessage').innerHTML = 'You are adding <strong>' + name + '</strong> with <strong>0 stock</strong>.';
+            document.getElementById('confirmZeroStockBtn').onclick = function() {
+                document.getElementById('zeroStockModal').classList.add('hidden');
+                document.getElementById('addForm').submit();
+            };
+            document.getElementById('zeroStockModal').classList.remove('hidden');
+            return false;
+        }
+        return true;
+    }
+
+    function validateEditForm(e) {
+        const stock = parseInt(document.getElementById('editStock').value, 10);
+        if (stock === 0) {
+            e.preventDefault();
+            const name = document.getElementById('editProductName').innerText;
+            document.getElementById('zeroStockMessage').innerHTML = 'You are setting the stock quantity of <strong>' + name + '</strong> to <strong>0 units</strong>.';
+            document.getElementById('confirmZeroStockBtn').onclick = function() {
+                document.getElementById('zeroStockModal').classList.add('hidden');
+                document.getElementById('editForm').submit();
+            };
+            document.getElementById('zeroStockModal').classList.remove('hidden');
+            return false;
+        }
+        return true;
+    }
+
+    function openEditModal(id, name, sku, cost, price, stock, threshold) {
+        document.getElementById('editForm').action = '/inventory/update/' + id;
+        document.getElementById('editProductName').innerText = name;
+        document.getElementById('editProductSku').innerText = 'SKU: ' + sku;
+        document.getElementById('editCost').value = cost;
+        document.getElementById('editPrice').value = price;
+        document.getElementById('editStock').value = stock;
+        document.getElementById('editThreshold').value = threshold;
+        document.getElementById('editModal').classList.remove('hidden');
+    }
+
+    function openDeleteModal(id, name, sku) {
+        document.getElementById('deleteProductForm').action = '/inventory/delete/' + id;
+        document.getElementById('deleteModalText').innerHTML = 'Are you sure you want to permanently delete <strong>' + name + '</strong> (' + sku + ') from the inventory catalog?';
+        document.getElementById('deleteModal').classList.remove('hidden');
+    }
+
+    // Auto-suggest Dropdown based on Name or SKU
+    const allProducts = {{ all_products|tojson|safe if all_products else "[]" }};
+    const searchInput = document.getElementById('inventorySearchInput');
+    const suggestionsDropdown = document.getElementById('inventorySuggestionsDropdown');
+    const searchForm = document.getElementById('inventorySearchForm');
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function renderSuggestions(query) {
+        if (!suggestionsDropdown) return;
+        const q = query.trim().toLowerCase();
+        if (!q) {
+            suggestionsDropdown.classList.add('hidden');
+            suggestionsDropdown.innerHTML = '';
+            return;
+        }
+
+        const matches = allProducts.filter(p => {
+            const nameMatch = (p.name || '').toLowerCase().includes(q);
+            const skuMatch = (p.sku || '').toLowerCase().includes(q);
+            return nameMatch || skuMatch;
+        }).slice(0, 6);
+
+        if (matches.length === 0) {
+            suggestionsDropdown.innerHTML = `
+                <div class="p-3 text-center text-xs text-[#5A4A3E]">
+                    No products found matching &ldquo;${escapeHtml(query)}&rdquo;
+                </div>
+            `;
+            suggestionsDropdown.classList.remove('hidden');
+            return;
+        }
+
+        let html = `
+            <div class="px-3.5 py-2 bg-[#FAF8F5] text-[11px] font-semibold text-[#5A4A3E] flex items-center justify-between border-b border-[#D5DCD0]">
+                <span>Suggested Products (${matches.length})</span>
+                <span class="text-[10px] text-slate-400">Click to search</span>
+            </div>
+        `;
+
+        matches.forEach(p => {
+            const isLowStock = p.stock_quantity <= p.reorder_threshold;
+            const stockColor = isLowStock ? 'text-[#BF4327]' : 'text-[#4E8752]';
+            const priceFormatted = Number(p.selling_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            html += `
+                <div onclick="selectSuggestion('${escapeHtml(p.sku)}')"
+                     class="cursor-pointer px-3.5 py-2.5 hover:bg-[#F9F7F1] transition flex items-center justify-between group">
+                    <div class="flex items-center space-x-2.5">
+                        <span class="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#EBF4EC] text-[#2D5A27] border border-[#D5DCD0]">
+                            ${escapeHtml(p.sku)}
+                        </span>
+                        <div>
+                            <div class="font-semibold text-xs text-[#2B2118] group-hover:text-[#2D5A27] transition">
+                                ${escapeHtml(p.name)}
+                            </div>
+                            <div class="text-[11px] text-[#5A4A3E]">
+                                ${escapeHtml(p.category)} &bull; ${escapeHtml(p.unit)}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-mono text-xs font-bold text-[#2B2118]">
+                            &#8369;${priceFormatted}
+                        </div>
+                        <div class="text-[10px] font-semibold ${stockColor}">
+                            Stock: ${p.stock_quantity}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        suggestionsDropdown.innerHTML = html;
+        suggestionsDropdown.classList.remove('hidden');
+    }
+
+    function selectSuggestion(sku) {
+        if (!searchInput) return;
+        searchInput.value = sku;
+        if (suggestionsDropdown) suggestionsDropdown.classList.add('hidden');
+        if (searchForm) searchForm.submit();
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            renderSuggestions(this.value);
+        });
+        searchInput.addEventListener('focus', function() {
+            if (this.value.trim()) {
+                renderSuggestions(this.value);
+            }
+        });
+    }
+
+    document.addEventListener('click', function(e) {
+        if (suggestionsDropdown && !suggestionsDropdown.contains(e.target) && e.target !== searchInput) {
+            suggestionsDropdown.classList.add('hidden');
+        }
+    });
+</script>
+{% endblock %}
